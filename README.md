@@ -6,4 +6,4 @@
  Then you will have a text file with all the vendor skus from ADI that need to be updated.
  Once complete compile this program and it will go through the whole list of products and then stop.
 
- *note this project is still ongoing and not complete yet*
+ *Note: This project is still ongoing and not complete yet.*
