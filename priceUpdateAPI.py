@@ -69,15 +69,36 @@ def connectwise_API(vendor_sku, new_price, new_cost):
     product_id = get_product_id_by_vendor_sku(vendor_sku, headers, base_url)
     if product_id:
         patch_product(product_id, new_price, new_cost, headers, base_url)
-        
+
+# This function will call the adi API and get the cost of each product
+def adi_API(vendor_sku):
+    
+    
 # This function will call the ADI API to get price of product
 # Then it will call the connectwise API to update that product in the catalog
 def main():
-    vendor_sku = 'SK-5230'
-    new_price = 200
-    new_cost = 100
     
-    connectwise_API(vendor_sku, new_price, new_cost)
+    # Open the products file then put the products in a array
+    with open('C:\python_programs\parts.txt', 'r') as f:
+        vendorSKU_ids = [line.strip() for line in f if line.strip()]
+
+    #array for products not found
+    to_be_deleted = []
+
+    for vendorSKU_id in vendorSKU_ids:
+        new_cost = adi_API(vendorSKU_id)
+        if new_cost:
+            new_price = new_cost * 1.5
+            connectwise_API(vendorSKU_id, new_price, new_cost)
+        else:
+            print(f"Product with ID {vendorSKU_id} should be deleted!")
+                to_be_deleted.append(vendorSKU_id)
+                
+    # Save product IDs to be deleted to a text file
+    with open('tobedeleted.txt', 'w') as f:
+        for vendorSKU_id in to_be_deleted:
+            f.write(str(vendorSKU_id) + '\n')
+        
 
 
 if __name__ == '__main__':
