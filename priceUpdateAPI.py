@@ -1,8 +1,12 @@
 import requests
 import json
 import base64
-# connectwiseAPI is a separate .py file that stores variables like API keys
+import uuid
+import subprocess
+# connectwiseAPI is a separate .py file that stores connectwise API keys
 import connectwiseAPI
+# connectwiseAPI is a separate .py file that stores ADI API keys
+import ADIAPI
 
 # This function takes the vendorSKU passed in and gets the id from connectwise API
 def get_product_id_by_vendor_sku(vendor_sku, headers, base_url):
@@ -25,7 +29,7 @@ def get_product_id_by_vendor_sku(vendor_sku, headers, base_url):
         print(response.text)
         return None
 
-#This function takes the found id and sends a patch request with the ADI cost and multiplied price
+# This function takes the found id and sends a patch request with the ADI cost and multiplied price
 def patch_product(product_id, new_price, new_cost, headers, base_url):
 
     endpoint = f"/procurement/catalog/{product_id}"
@@ -41,13 +45,12 @@ def patch_product(product_id, new_price, new_cost, headers, base_url):
 
     if response.status_code == 200:
         product = response.json()
-        print(f"Product {product_id} updated successfully:")
-        print(json.dumps(product, indent=4))
+        print(f"Product {product_id} updated successfully")
     else:
         print(f"Failed to update product. Status code: {response.status_code}")
         print(response.text)
         
-#This function calls the connectwise API then calls search to find the product id
+# This function calls the connectwise API then calls search to find the product id
 def connectwise_API(vendor_sku, new_price, new_cost):
 
     company_id = connectwiseAPI.company_id
@@ -69,30 +72,46 @@ def connectwise_API(vendor_sku, new_price, new_cost):
     product_id = get_product_id_by_vendor_sku(vendor_sku, headers, base_url)
     if product_id:
         patch_product(product_id, new_price, new_cost, headers, base_url)
+    else:
+        print(f"Failed to get product id for sku: {vendor_sku}")
+        with open('find_product_id.txt', 'w') as f:
+            f.write(str(vendor_sku) + '\n')
 
 # This function will call the adi API and get the cost of each product
-def adi_API(vendor_sku):
-    
-    
+def adi_API(vendor_sku, quantity):
+    try:
+        result = subprocess.run(['node', 'get_price.js', vendor_sku, str(quantity)], capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            print(f"Error: {result.stderr}")
+            return None
+    except Exception as e:
+        print(f"Exception occurred: {e}")
+        return None
+
 # This function will call the ADI API to get price of product
 # Then it will call the connectwise API to update that product in the catalog
 def main():
     
     # Open the products file then put the products in a array
-    with open('C:\python_programs\parts.txt', 'r') as f:
+    with open(r'C:\python programs\pricing tool 2.0\parts.txt', 'r') as f:
         vendorSKU_ids = [line.strip() for line in f if line.strip()]
 
-    #array for products not found
+    # Array for products not found
     to_be_deleted = []
 
     for vendorSKU_id in vendorSKU_ids:
-        new_cost = adi_API(vendorSKU_id)
+        new_cost = adi_API(vendorSKU_id,1)
+        print(f"{new_cost}")
         if new_cost:
-            new_price = new_cost * 1.5
+            new_price = float(new_cost) * 1.500001
+            new_price = round(new_price,2)
+            print(f"{new_price}")
             connectwise_API(vendorSKU_id, new_price, new_cost)
         else:
             print(f"Product with ID {vendorSKU_id} should be deleted!")
-                to_be_deleted.append(vendorSKU_id)
+            to_be_deleted.append(vendorSKU_id)
                 
     # Save product IDs to be deleted to a text file
     with open('tobedeleted.txt', 'w') as f:
